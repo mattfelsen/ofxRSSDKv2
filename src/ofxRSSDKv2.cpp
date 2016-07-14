@@ -90,6 +90,25 @@ namespace ofxRSSDK
 		}
 		return mHasDepth;
 	}
+
+	bool RSDevice::initPersonTracking()
+	{
+		pxcStatus cStatus;
+		if (mSenseMgr)
+		{
+			cStatus = mSenseMgr->EnablePersonTracking();
+			if (cStatus >= PXC_STATUS_NO_ERROR)
+			{
+				mHasPersonTracking = true;
+				PXCPersonTrackingModule *personTrackingModule = mSenseMgr->QueryPersonTacking();
+				PXCPersonTrackingConfiguration* personTrackingConfiguration = personTrackingModule->QueryConfiguration();
+				PXCPersonTrackingConfiguration::ExpressionsConfiguration* expressionsConfig = personTrackingConfiguration->QueryExpressions();
+				expressionsConfig->Enable();
+				expressionsConfig->EnableAllExpressions();
+			}
+		}
+		return mHasPersonTracking;
+	}
 #pragma endregion
 
 	void RSDevice::setPointCloudRange(float pMin=100.0f, float pMax=1500.0f)
@@ -221,6 +240,12 @@ namespace ofxRSSDK
 					ofLog(ofLogLevel::OF_LOG_WARNING, e.what());
 				}
 			}
+
+			if (mHasPersonTracking)
+			{
+				updatePersonTracking();
+			}
+
 			mSenseMgr->ReleaseFrame();
 			return true;
 		}
@@ -328,6 +353,36 @@ namespace ofxRSSDK
 		{
 			PXCPoint3DF32 p = worldPoints[i];
 			mPointCloud.push_back(ofVec3f(p.x, p.y, p.z));
+		}
+	}
+
+	void RSDevice::updatePersonTracking()
+	{
+		PXCPersonTrackingModule *module = mSenseMgr->QueryPersonTacking();
+		if (!module) return;
+
+		PXCPersonTrackingData *data = module->QueryOutput();
+		if (!data) return;
+
+		pxcI32 numPeople = data->QueryNumberOfPeople();
+		mTrackedPersonExpressions.clear();
+
+		for (int i = 0; i < numPeople; i++) {
+			PersonExpression expression;
+			PXCPersonTrackingData::Person *person = data->QueryPersonData(PXCPersonTrackingData::ACCESS_ORDER_BY_ID, i);
+			PXCPersonTrackingData::PersonExpressions *personExpressions = person->QueryExpressions();
+			
+			PXCPersonTrackingData::PersonExpressions::PersonExpressionsResult resultNeutral;
+			personExpressions->QueryExpression(PXCPersonTrackingData::PersonExpressions::NEUTRAL, &resultNeutral);
+			if (resultNeutral.confidence >= 0)
+				expression.neutral = resultNeutral.confidence;
+
+			PXCPersonTrackingData::PersonExpressions::PersonExpressionsResult resultHappiness;
+			personExpressions->QueryExpression(PXCPersonTrackingData::PersonExpressions::HAPPINESS, &resultHappiness);
+			if (resultHappiness.confidence >= 0)
+				expression.happiness = resultHappiness.confidence;
+
+			mTrackedPersonExpressions.push_back(expression);
 		}
 	}
 #pragma endregion

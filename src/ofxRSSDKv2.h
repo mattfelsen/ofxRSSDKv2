@@ -12,6 +12,9 @@
 #include "pxcblobmodule.h"
 #include "pxcfacemodule.h"
 #include "pxcfaceconfiguration.h"
+#include "pxcpersontrackingdata.h"
+#include "pxcpersontrackingmodule.h"
+#include "pxcpersontrackingconfiguration.h"
 
 using namespace std;
 
@@ -49,6 +52,18 @@ namespace ofxRSSDK
 		Q_RES=4
 	};
 
+	struct PersonExpression
+	{
+		int neutral = -1;
+		int happiness = -1;
+		int sadness = -1;
+		int surprise = -1;
+		int fear = -1;
+		int anger = -1;
+		int disgust = -1;
+		int contempt = -1;
+	};
+
 	class RSDevice
 	{
 	protected:
@@ -60,6 +75,7 @@ namespace ofxRSSDK
 		bool init();
 		bool initRgb(const RGBRes& pSize, const float& pFPS);
 		bool initDepth(const DepthRes& pSize, const float& pFPS, bool pAsColor);
+		bool initPersonTracking();
 		
 		void enableAlignedImages(bool pState = true, AlignMode pMode = AlignMode::ALIGN_UVS_ONLY) { mShouldAlign = pState; mAlignMode = pMode; }
 		void enablePointCloud(CloudRes pCloudRes, float pMinDepth, float pMaxDepth) { mCloudRes=pCloudRes; mShouldGetPointCloud=true; mPointCloudRange = ofVec2f(pMinDepth,pMaxDepth);}
@@ -115,8 +131,11 @@ namespace ofxRSSDK
 		const int		getRgbWidth() { return mRgbSize.x; }
 		const int		getRgbHeight() { return mRgbSize.y; }
 
+		const vector<PersonExpression>& getTrackedPersonExpressions() const { return mTrackedPersonExpressions; }
+
 	private:
 		void			updatePointCloud();
+		void			updatePersonTracking();
 		void			updateFaces();
 		void			updateBlobs();
 
@@ -128,7 +147,8 @@ namespace ofxRSSDK
 						mShouldGetDepthAsColor,
 						mShouldGetPointCloud,
 						mShouldGetFaces,
-						mShouldGetBlobs;
+						mShouldGetBlobs,
+						mHasPersonTracking;
 
 		AlignMode		mAlignMode;
 		CloudRes		mCloudRes;
@@ -154,6 +174,8 @@ namespace ofxRSSDK
 		vector<PXCPointF32>		mOutPoints2D;
 		vector<ofVec3f>			mPointCloud;
 		uint16_t				*mRawDepth;
+
+		vector<PersonExpression> mTrackedPersonExpressions;
 	};
 };
 #endif
